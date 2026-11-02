@@ -1,52 +1,201 @@
-const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)');
-const services={
-foundation:{name:'Фундаменты',number:'01',variants:['Монолитная плита','Ленточный фундамент','Свайно-ростверковый фундамент'],work:['Подготовка основания','Опалубка и армирование','Укладка и уплотнение бетона'],need:'Тип постройки, размеры, проект и сведения о грунте, если есть.'},
-floor:{name:'Бетонные полы',number:'02',variants:['Полы в гаражах и мастерских','Склады и производственные помещения','Бетонные основания и стяжки'],work:['Подготовка и выравнивание основания','Армирование по проекту','Заливка, выравнивание и швы'],need:'Площадь, предполагаемая нагрузка, состояние основания и требования к поверхности.'},
-yard:{name:'Площадки и отмостки',number:'03',variants:['Въезды и парковки','Дворы и дорожки','Отмостки вокруг дома'],work:['Подготовка песчано-щебёночного основания','Опалубка, уклоны и армирование','Бетонирование и устройство швов'],need:'Размеры, фото участка, тип транспорта и условия отвода воды.'},
-monolith:{name:'Лестницы и монолит',number:'04',variants:['Лестницы, ступени и крыльцо','Стены, колонны и армопояса','Перекрытия и подпорные стены'],work:['Сборка опалубки','Арматурный каркас по проекту','Бетонирование и уход за конструкцией'],need:'Чертежи, размеры, расположение конструкции и условия доступа к месту работ.'}
-};
-const cards=[...document.querySelectorAll('[data-service]')],panel=document.querySelector('#service-detail'),inner=panel.querySelector('.detail-inner'),serviceSelect=document.querySelector('#service'),description=document.querySelector('#description');
-let activeCard=null,panelAnimation=null;
-function listColumn(title,items){const section=document.createElement('div'),heading=document.createElement('h4'),list=document.createElement('ul');heading.textContent=title;for(const text of items){const li=document.createElement('li');li.textContent=text;list.append(li);}section.append(heading,list);return section;}
-function closePanel(returnFocus=false){if(!activeCard)return;const previous=activeCard;previous.setAttribute('aria-expanded','false');activeCard=null;panelAnimation?.cancel();if(reduceMotion.matches){panel.hidden=true;}else{panelAnimation=panel.animate([{height:`${panel.offsetHeight}px`,opacity:1},{height:'0px',opacity:0}],{duration:260,easing:'cubic-bezier(.4,0,.2,1)'});panelAnimation.onfinish=()=>{if(!activeCard)panel.hidden=true;};}if(returnFocus)previous.focus({preventScroll:true});}
-cards.forEach(card=>card.addEventListener('click',()=>{
-if(activeCard===card){closePanel();return;}
-const oldHeight=panel.hidden?0:panel.offsetHeight;panelAnimation?.cancel();activeCard?.setAttribute('aria-expanded','false');activeCard=card;card.setAttribute('aria-expanded','true');const data=services[card.dataset.service];document.querySelector('#detail-number').textContent=`${data.number} / СОСТАВ РАБОТ`;document.querySelector('#detail-title').textContent=data.name;
-const columns=document.querySelector('#detail-columns');columns.replaceChildren(listColumn('Варианты',data.variants),listColumn('Работы',data.work));const last=document.createElement('div'),h=document.createElement('h4'),p=document.createElement('p');h.textContent='Для расчёта';p.textContent=data.need;last.append(h,p);columns.append(last);serviceSelect.value=data.name;panel.hidden=false;
-if(!reduceMotion.matches)panelAnimation=panel.animate([{height:`${oldHeight}px`,opacity:oldHeight?1:0},{height:`${inner.offsetHeight}px`,opacity:1}],{duration:420,easing:'cubic-bezier(.16,1,.3,1)'});
-requestAnimationFrame(()=>{const rect=panel.getBoundingClientRect();if(rect.top>innerHeight*.78||rect.top<0)panel.scrollIntoView({behavior:reduceMotion.matches?'instant':'smooth',block:'start'});});
-}));
-document.querySelector('.close-detail').addEventListener('click',()=>closePanel(true));
-const menuButton=document.querySelector('.menu-toggle'),nav=document.querySelector('#main-nav');
-function closeMenu(){menuButton.setAttribute('aria-expanded','false');menuButton.setAttribute('aria-label','Открыть меню');nav.classList.remove('is-open');}
-menuButton.addEventListener('click',()=>{const open=menuButton.getAttribute('aria-expanded')!=='true';menuButton.setAttribute('aria-expanded',String(open));menuButton.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');nav.classList.toggle('is-open',open);});
-nav.querySelectorAll('a').forEach(link=>link.addEventListener('click',closeMenu));document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menuButton.getAttribute('aria-expanded')==='true'){closeMenu();menuButton.focus();}});
-const volumeForm=document.querySelector('#volume-form'),result=document.querySelector('#volume-result'),format=new Intl.NumberFormat('ru-RU',{maximumFractionDigits:3});
-function getVolume(){if(!volumeForm.checkValidity())return null;const data=new FormData(volumeForm),n=Number(data.get('length'))*Number(data.get('width'))*Number(data.get('thickness'))/100;return Number.isFinite(n)?n:null;}
-volumeForm.addEventListener('input',()=>{const value=getVolume();result.replaceChildren();if(value===null){result.textContent='—';return;}result.append(`${format.format(value)} `);const unit=document.createElement('small');unit.textContent='м³';result.append(unit);});
-volumeForm.addEventListener('submit',event=>{event.preventDefault();const data=new FormData(volumeForm);serviceSelect.value='Фундаменты';description.value=`Плита ${data.get('length')} × ${data.get('width')} м, толщина ${data.get('thickness')} см. Объём без запаса: ${format.format(getVolume())} м³. Адрес объекта: `;description.setCustomValidity('');document.querySelector('#contact').scrollIntoView({behavior:reduceMotion.matches?'instant':'smooth'});description.focus({preventScroll:true});});
-const dialog=document.querySelector('#request-dialog');let request='';
-document.querySelector('#contact-form').addEventListener('submit',event=>{event.preventDefault();if(!description.value.trim()){description.setCustomValidity('Опишите вашу задачу.');description.reportValidity();return;}request=`Здравствуйте! Интересуют бетонные работы.\n\n${serviceSelect.value}.\n${description.value.trim()}`;document.querySelector('#request-text').textContent=request;document.querySelector('#whatsapp-link').href=`https://wa.me/79517243652?text=${encodeURIComponent(request)}`;document.querySelector('#copy-request').textContent='Скопировать текст';dialog.showModal();});
-description.addEventListener('input',()=>description.setCustomValidity(''));document.querySelector('.dialog-close').addEventListener('click',()=>dialog.close());
-dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
-document.querySelector('#copy-request').addEventListener('click',async event=>{try{await navigator.clipboard.writeText(request);event.target.textContent='Скопировано ✓';}catch{event.target.textContent='Выделите и скопируйте текст выше';const range=document.createRange();range.selectNodeContents(document.querySelector('#request-text'));const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);}});
-// No-JS and reduced-motion visitors see every section without waiting for an animation.
-if(!reduceMotion.matches&&'IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{for(const entry of entries){if(entry.isIntersecting){entry.target.classList.remove('is-pending');entry.target.classList.add('is-visible');observer.unobserve(entry.target);}}},{threshold:.08,rootMargin:'0px 0px -20px 0px'});document.querySelectorAll('.reveal').forEach((el,index)=>{if(el.getBoundingClientRect().top>innerHeight*.9){el.classList.add('is-pending');el.style.transitionDelay=`${index%4*65}ms`;observer.observe(el);}});}
-// The photograph assembles from aligned image tiles in under two seconds.
-const hero=document.querySelector('.hero'),photo=document.querySelector('#hero-photo'),puzzle=document.querySelector('.hero-puzzle');let introAnimations=[],introRunning=false;
-async function assembleHero(){
-if(introRunning||reduceMotion.matches||!photo.complete||!photo.naturalWidth)return;
-introRunning=true;introAnimations.forEach(a=>a.cancel());introAnimations=[];puzzle.replaceChildren();hero.classList.add('assembling');
-const w=hero.clientWidth,h=hero.clientHeight,cols=w<760?3:5,rows=3,scale=Math.max(w/photo.naturalWidth,h/photo.naturalHeight),sw=photo.naturalWidth*scale,sh=photo.naturalHeight*scale,ox=(w-sw)*(w<760?.85:.65),oy=(h-sh)*(w<760?.5:.55),pending=[];
-for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-const tile=document.createElement('div');tile.className='puzzle-piece';const left=x*w/cols,top=y*h/rows;Object.assign(tile.style,{left:`${left}px`,top:`${top}px`,width:`${w/cols+.5}px`,height:`${h/rows+.5}px`,backgroundImage:`url("${photo.currentSrc||photo.src}")`,backgroundSize:`${sw}px ${sh}px`,backgroundPosition:`${ox-left}px ${oy-top}px`});puzzle.append(tile);
-const distance=x-(cols-1)/2,animation=tile.animate([{transform:`translate3d(${distance*55}px,${(y-1)*75+35}px,${-160-Math.abs(distance)*80}px) rotate(${distance*4+(y-1)*3}deg) scale(.82)`,opacity:0,filter:'brightness(.55)',boxShadow:'0 0 0 8px #202523'},{transform:'translate3d(0,0,0) rotate(0) scale(1)',opacity:1,filter:'brightness(1)',boxShadow:'0 0 0 0px #202523'}],{duration:1000,delay:80+(x+y)*65,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'});introAnimations.push(animation);pending.push(animation.finished.catch(()=>{}));
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const menu = document.querySelector('.menu');
+const nav = document.querySelector('#navigation');
+const service = document.querySelector('#service');
+const description = document.querySelector('#description');
+const viewSwitch = document.querySelector('.view-switch');
+const cutaway = document.querySelector('#cutaway');
+const photoCaption = document.querySelector('.cover figcaption');
+function showCutaway(open) {
+  cutaway.hidden = !open;
+  viewSwitch.setAttribute('aria-expanded', String(open));
+  viewSwitch.firstChild.textContent = open ? 'Показать фото ' : 'Показать схему ';
+  photoCaption.lastChild.textContent = open ? ' Устройство плиты · условная схема' : ' Заливка фундаментной плиты';
 }
-document.querySelectorAll('.hero-line>span').forEach((line,index)=>introAnimations.push(line.animate([{transform:'translateY(108%) skewY(3deg)'},{transform:'translateY(0) skewY(0)'}],{duration:850,delay:350+index*110,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'})));
-document.querySelectorAll('.hero-enter').forEach((el,index)=>introAnimations.push(el.animate([{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'translateY(0)'}],{duration:650,delay:250+index*330,easing:'cubic-bezier(.16,1,.3,1)',fill:'both'})));
-introAnimations.push(document.querySelector('.hero-progress').animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:1600,easing:'cubic-bezier(.16,1,.3,1)'}));
-await Promise.all(pending);hero.classList.remove('assembling');puzzle.replaceChildren();introRunning=false;
+viewSwitch.addEventListener('click', () => showCutaway(cutaway.hidden));
+
+function toggleMenu(open) {
+  menu.setAttribute('aria-expanded', String(open));
+  menu.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
+  nav.classList.toggle('open', open);
 }
-if(!location.hash||location.hash==='#top'){if(photo.complete)assembleHero();else photo.addEventListener('load',assembleHero,{once:true});}
-document.querySelector('#replay-intro').addEventListener('click',()=>{window.scrollTo({top:0,behavior:'instant'});assembleHero();});
-reduceMotion.addEventListener('change',()=>{if(reduceMotion.matches){introAnimations.forEach(a=>a.finish());hero.classList.remove('assembling');document.querySelectorAll('.is-pending').forEach(el=>el.classList.remove('is-pending'));}});
+menu.addEventListener('click', () => toggleMenu(!nav.classList.contains('open')));
+nav.addEventListener('click', () => toggleMenu(false));
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && nav.classList.contains('open')) {
+    toggleMenu(false);
+    menu.focus();
+  }
+});
+
+const details = [...document.querySelectorAll('.service-list details')];
+const samples = [...document.querySelectorAll('.sample')];
+details.forEach((item, index) => {
+  item.addEventListener('toggle', () => {
+    if (!item.open) return;
+    for (const other of details) {
+      if (other !== item) other.open = false;
+    }
+    samples.forEach((sample, i) => sample.classList.toggle('active', index === i));
+    document.querySelector('#sample-title').textContent = item.querySelector('strong').textContent;
+    if (!reducedMotion.matches) {
+      item.querySelector('.body').animate(
+        [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 250, easing: 'ease-out' }
+      );
+    }
+  });
+});
+document.querySelectorAll('[data-choose]').forEach(link => {
+  link.addEventListener('click', () => { service.value = link.dataset.choose; });
+});
+
+const form = document.querySelector('#volume-form');
+const result = document.querySelector('#volume-result');
+const format = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 5});
+function dimensions() {
+  return ['length', 'width', 'thickness'].map(key => form.elements.namedItem(key).valueAsNumber);
+}
+function renderSlab(length, width, thickness) {
+  const svg = document.querySelector('#slab');
+  const ratio = Math.min(2.3, Math.max(.44, length / width));
+  const x = 286 * ratio / (1 + ratio);
+  const y = 286 - x;
+  const depth = Math.min(48, Math.max(8, 18 * Math.sqrt(thickness / 20)));
+  const start = 65, top = 36;
+  const a = [start + y, top], b = [start + x + y, top + x * .42];
+  const c = [start + x, top + (x + y) * .42], d = [start, top + y * .42];
+  const down = ([px, py]) => [px, py + depth];
+  const polygon = points => 'M' + points.join(' L') + ' Z';
+  const topPath = polygon([a, b, c, d]);
+  svg.querySelector('#face-top').setAttribute('d', topPath);
+  svg.querySelector('#face-grid').setAttribute('d', topPath);
+  svg.querySelector('#face-left').setAttribute('d', polygon([d, c, down(c), down(d)]));
+  svg.querySelector('#face-right').setAttribute('d', polygon([c, b, down(b), down(c)]));
+  function dimensionLine(axis, from, to, value) {
+    const offset = depth + 14;
+    const [x1, y1] = from, [x2, y2] = to;
+    svg.querySelector('#measure-' + axis).setAttribute('d',
+      `M${x1} ${y1+offset} L${x2} ${y2+offset} M${x1} ${y1+offset-3}v6 M${x2} ${y2+offset-3}v6`);
+    const label = svg.querySelector('#label-' + axis);
+    label.setAttribute('x', (x1 + x2) / 2);
+    label.setAttribute('y', (y1 + y2) / 2 + offset + 22);
+    label.textContent = format.format(value) + ' м';
+  }
+  dimensionLine('x', d, c, length);
+  dimensionLine('y', c, b, width);
+}
+function updateVolume() {
+  const valid = form.checkValidity();
+  document.querySelector('#slab').style.visibility = valid ? 'visible' : 'hidden';
+  if (!valid) { result.value = '—'; return; }
+  const [length, width, thickness] = dimensions();
+  result.value = format.format(length * width * thickness / 100) + ' м³';
+  renderSlab(length, width, thickness);
+}
+form.addEventListener('input', updateVolume);
+updateVolume();
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  const [length, width, thickness] = dimensions().map(value => format.format(value));
+  if (!['Фундаменты','Бетонные полы','Площадки и отмостки'].includes(service.value)) service.value = 'Другие работы';
+  description.value = `Размеры: ${length} × ${width} м, толщина ${thickness} см. Объём без запаса: ${result.value}. Адрес объекта: `;
+  description.setCustomValidity('');
+  document.querySelector('#contact').scrollIntoView({behavior: reducedMotion.matches ? 'instant' : 'smooth'});
+  description.focus({preventScroll:true});
+});
+
+const dialog = document.querySelector('#request-dialog');
+const preview = document.querySelector('#request-text');
+const copy = document.querySelector('#copy-request');
+description.addEventListener('input', () => description.setCustomValidity(''));
+document.querySelector('#contact-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!description.value.trim()) {
+    description.setCustomValidity('Опишите вашу задачу.');
+    description.reportValidity();
+    return;
+  }
+  preview.textContent = `Здравствуйте! Интересуют бетонные работы.\n\n${service.value}.\n${description.value.trim()}`;
+  document.querySelector('#whatsapp-link').href = 'https://wa.me/79517243652?text=' + encodeURIComponent(preview.textContent);
+  copy.textContent = 'Скопировать текст';
+  dialog.showModal();
+});
+document.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
+dialog.addEventListener('click', event => {
+  if (event.target !== dialog) return;
+  const bounds = dialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+});
+copy.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(preview.textContent);
+    copy.textContent = 'Скопировано';
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents(preview);
+    const selection = getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    copy.textContent = 'Текст выделен для копирования';
+  }
+});
+
+// Build the photograph from five independently moving strips, then release the layers.
+const photo = document.querySelector('.photo-window img');
+const strips = [...document.querySelectorAll('.shutters i')];
+let animations = [];
+function assemble() {
+  if (reducedMotion.matches || !photo.naturalWidth || !photo.animate) return;
+  animations.forEach(animation => animation.cancel());
+  const {width, height} = photo.getBoundingClientRect();
+  const scale = Math.max(width / photo.naturalWidth, height / photo.naturalHeight);
+  const sw = photo.naturalWidth * scale, sh = photo.naturalHeight * scale;
+  const origin = photo.getBoundingClientRect().left;
+  animations = strips.map((strip, index) => {
+    const left = strip.getBoundingClientRect().left - origin;
+    Object.assign(strip.style, {
+      backgroundImage: 'url("' + photo.currentSrc + '")',
+      backgroundSize: sw + 'px ' + sh + 'px',
+      backgroundPosition: ((width - sw) * .83 - left) + 'px ' + ((height - sh) * .54) + 'px'
+    });
+    return strip.animate([
+      {transform: 'translateY(' + (index % 2 ? -55 : 55) + '%)', opacity: 0},
+      {transform: 'translateY(0)', opacity: 1}
+    ], {duration: 720, delay: index * 60, easing: 'cubic-bezier(.17,.75,.22,1)', fill: 'both'});
+  });
+  photo.style.opacity = '0';
+  const current = animations;
+  Promise.allSettled(current.map(animation => animation.finished)).then(() => {
+    if (current !== animations) return;
+    photo.style.opacity = '';
+    current.forEach(animation => animation.cancel());
+    animations = [];
+  });
+}
+if (!location.hash || location.hash === '#top') {
+  if (photo.complete) assemble();
+  else photo.addEventListener('load', () => { if (scrollY < innerHeight / 2) assemble(); }, {once:true});
+}
+document.querySelector('#replay-intro').addEventListener('click', () => {
+  showCutaway(false);
+  window.scrollTo({top:0, behavior:'instant'});
+  assemble();
+});
+reducedMotion.addEventListener('change', () => {
+  if (reducedMotion.matches) animations.forEach(animation => animation.cancel());
+});
+
+if ('IntersectionObserver' in window && !reducedMotion.matches) {
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      observer.unobserve(entry.target);
+      if (!reducedMotion.matches) entry.target.animate(
+        [{transform:'translateY(14px)', opacity:.6}, {transform:'none', opacity:1}],
+        {duration:450, easing:'ease-out'}
+      );
+    }
+  }, {threshold:.15});
+  document.querySelectorAll('.section h2,.steps li,.workbench').forEach(element => observer.observe(element));
+}
