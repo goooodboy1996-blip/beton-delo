@@ -1,201 +1,106 @@
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-const menu = document.querySelector('.menu');
-const nav = document.querySelector('#navigation');
-const service = document.querySelector('#service');
-const description = document.querySelector('#description');
-const viewSwitch = document.querySelector('.view-switch');
-const cutaway = document.querySelector('#cutaway');
-const photoCaption = document.querySelector('.cover figcaption');
-function showCutaway(open) {
-  cutaway.hidden = !open;
-  viewSwitch.setAttribute('aria-expanded', String(open));
-  viewSwitch.firstChild.textContent = open ? 'Показать фото ' : 'Показать схему ';
-  photoCaption.lastChild.textContent = open ? ' Устройство плиты · условная схема' : ' Заливка фундаментной плиты';
-}
-viewSwitch.addEventListener('click', () => showCutaway(cutaway.hidden));
+const rows=[["Фундаментная плита","Сплошное основание под дом или гараж.","Готовим и уплотняем основание.|Собираем опалубку и вяжем арматуру по проекту.|Заливаем плиту и выравниваем поверхность.",2,4],["Ленточный фундамент","Бетонная лента под стенами дома.","Размечаем оси стен на участке.|Готовим траншеи и собираем арматурный каркас.|Выставляем опалубку и заливаем ленту.",8,11],["Ростверк на сваях","Бетонная балка, которая связывает сваи.","Уточняем положение свай и отметку балки.|Собираем опалубку и связываем каркас по проекту.|Укладываем и уплотняем бетон.",2,4],["Бетонный пол","Пол для гаража, склада или мастерской.","Готовим основание с учётом нагрузки.|Укладываем бетон и выравниваем поверхность.|Выполняем финишную обработку и швы по проекту.",5,6],["Стяжка пола","Ровное основание под напольное покрытие.","Проверяем перепады высоты.|Выставляем направляющие и укладываем смесь.|Выравниваем поверхность под выбранное покрытие.",5,7],["Монолитное перекрытие","Железобетонная плита между этажами.","Собираем опалубку на временных опорах.|Вяжем арматуру и оставляем проёмы по проекту.|Заливаем перекрытие и организуем уход за бетоном.",9,2],["Въезд и парковка","Площадка под автомобиль у дома.","Учитываем вес машин и направление стока воды.|Уплотняем основание и выставляем опалубку.|Заливаем площадку и устраиваем швы.",0,6],["Садовые дорожки","Бетонные дорожки между домом, садом и двором.","Размечаем маршрут и ширину прохода.|Готовим основание и выставляем борта формы.|Укладываем бетон с уклоном для отвода воды.",1,7],["Отмостка вокруг дома","Полоса вдоль стен для отвода дождевой воды.","Уточняем ширину и уклон от дома.|Готовим основание и устанавливаем опалубку.|Бетонируем полосу и устраиваем швы.",0,1],["Крыльцо и ступени","Бетонная площадка и ступени перед входом.","Проверяем высоту порога и размеры площадки.|Собираем форму ступеней и арматурный каркас.|Заливаем крыльцо и выравниваем ступени.",10,7],["Межэтажная лестница","Монолитный лестничный марш внутри дома.","Уточняем высоту этажей и размеры проёма.|Собираем наклонную опалубку и вяжем арматуру.|Заливаем марш и формируем ступени.",10,2],["Подпорная стена","Бетонная стена для участка с перепадом высот.","Уточняем перепад высот и решение по дренажу.|Готовим основание и арматурный каркас по проекту.|Собираем щиты и бетонируем стену.",3,4]], groups=["Фундаменты","Полы и перекрытия","Двор и дорожки","Лестницы и стены"], stages=["Уплотнение щебня","Опалубка по контуру","Вязка арматуры","Щиты опалубки","Подача бетона","Выравнивание по направляющим","Нарезка швов","Заглаживание поверхности","Разметка осей","Временные опоры","Опалубка ступеней","Арматурный каркас"];
+const motion = matchMedia('(prefers-reduced-motion: reduce)');
+const hero = document.querySelector('.hero');
+const shots = [...document.querySelectorAll('.shot')];
+const captions = [...document.querySelectorAll('.caption')];
+const ticks = [...document.querySelectorAll('.ticks i')];
+const pause = document.querySelector('#pause');
+const dialog = document.querySelector('dialog');
+let current = 0;
+let timer;
+let playing = !motion.matches;
+let inView = true;
 
-function toggleMenu(open) {
-  menu.setAttribute('aria-expanded', String(open));
-  menu.setAttribute('aria-label', open ? 'Закрыть меню' : 'Открыть меню');
-  nav.classList.toggle('open', open);
-}
-menu.addEventListener('click', () => toggleMenu(!nav.classList.contains('open')));
-nav.addEventListener('click', () => toggleMenu(false));
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && nav.classList.contains('open')) {
-    toggleMenu(false);
-    menu.focus();
+function schedule() {
+  clearTimeout(timer);
+  pause.textContent = playing ? 'Ⅱ' : '▷';
+  pause.setAttribute('aria-label', playing ? 'Приостановить смену кадров' : 'Включить смену кадров');
+  if (playing && inView && !document.hidden && !dialog.open) {
+    timer = setTimeout(() => showSlide(current + 1), 6200);
   }
-});
-
-const details = [...document.querySelectorAll('.service-list details')];
-const samples = [...document.querySelectorAll('.sample')];
-details.forEach((item, index) => {
-  item.addEventListener('toggle', () => {
-    if (!item.open) return;
-    for (const other of details) {
-      if (other !== item) other.open = false;
-    }
-    samples.forEach((sample, i) => sample.classList.toggle('active', index === i));
-    document.querySelector('#sample-title').textContent = item.querySelector('strong').textContent;
-    if (!reducedMotion.matches) {
-      item.querySelector('.body').animate(
-        [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }],
-        { duration: 250, easing: 'ease-out' }
-      );
-    }
+}
+function showSlide(index) {
+  current = (index + shots.length) % shots.length;
+  shots.forEach((shot, i) => {
+    shot.classList.toggle('active', i === current);
+    captions[i].classList.toggle('active', i === current);
+    captions[i].setAttribute('aria-hidden', String(i !== current));
+    ticks[i].classList.toggle('on', i === current);
   });
-});
-document.querySelectorAll('[data-choose]').forEach(link => {
-  link.addEventListener('click', () => { service.value = link.dataset.choose; });
-});
-
-const form = document.querySelector('#volume-form');
-const result = document.querySelector('#volume-result');
-const format = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 5});
-function dimensions() {
-  return ['length', 'width', 'thickness'].map(key => form.elements.namedItem(key).valueAsNumber);
+  document.querySelector('#slide-index').textContent = String(current + 1).padStart(2, '0');
+  schedule();
 }
-function renderSlab(length, width, thickness) {
-  const svg = document.querySelector('#slab');
-  const ratio = Math.min(2.3, Math.max(.44, length / width));
-  const x = 286 * ratio / (1 + ratio);
-  const y = 286 - x;
-  const depth = Math.min(48, Math.max(8, 18 * Math.sqrt(thickness / 20)));
-  const start = 65, top = 36;
-  const a = [start + y, top], b = [start + x + y, top + x * .42];
-  const c = [start + x, top + (x + y) * .42], d = [start, top + y * .42];
-  const down = ([px, py]) => [px, py + depth];
-  const polygon = points => 'M' + points.join(' L') + ' Z';
-  const topPath = polygon([a, b, c, d]);
-  svg.querySelector('#face-top').setAttribute('d', topPath);
-  svg.querySelector('#face-grid').setAttribute('d', topPath);
-  svg.querySelector('#face-left').setAttribute('d', polygon([d, c, down(c), down(d)]));
-  svg.querySelector('#face-right').setAttribute('d', polygon([c, b, down(b), down(c)]));
-  function dimensionLine(axis, from, to, value) {
-    const offset = depth + 14;
-    const [x1, y1] = from, [x2, y2] = to;
-    svg.querySelector('#measure-' + axis).setAttribute('d',
-      `M${x1} ${y1+offset} L${x2} ${y2+offset} M${x1} ${y1+offset-3}v6 M${x2} ${y2+offset-3}v6`);
-    const label = svg.querySelector('#label-' + axis);
-    label.setAttribute('x', (x1 + x2) / 2);
-    label.setAttribute('y', (y1 + y2) / 2 + offset + 22);
-    label.textContent = format.format(value) + ' м';
-  }
-  dimensionLine('x', d, c, length);
-  dimensionLine('y', c, b, width);
-}
-function updateVolume() {
-  const valid = form.checkValidity();
-  document.querySelector('#slab').style.visibility = valid ? 'visible' : 'hidden';
-  if (!valid) { result.value = '—'; return; }
-  const [length, width, thickness] = dimensions();
-  result.value = format.format(length * width * thickness / 100) + ' м³';
-  renderSlab(length, width, thickness);
-}
-form.addEventListener('input', updateVolume);
-updateVolume();
-form.addEventListener('submit', event => {
-  event.preventDefault();
-  const [length, width, thickness] = dimensions().map(value => format.format(value));
-  if (!['Фундаменты','Бетонные полы','Площадки и отмостки'].includes(service.value)) service.value = 'Другие работы';
-  description.value = `Размеры: ${length} × ${width} м, толщина ${thickness} см. Объём без запаса: ${result.value}. Адрес объекта: `;
-  description.setCustomValidity('');
-  document.querySelector('#contact').scrollIntoView({behavior: reducedMotion.matches ? 'instant' : 'smooth'});
-  description.focus({preventScroll:true});
-});
+document.querySelector('#prev').onclick = () => showSlide(current - 1);
+document.querySelector('#next').onclick = () => showSlide(current + 1);
+pause.onclick = () => { playing = !playing; schedule(); };
+motion.addEventListener('change', () => { playing = !motion.matches; schedule(); });
+document.addEventListener('visibilitychange', schedule);
+let touchStart;
+hero.addEventListener('touchstart', e => {
+  touchStart = [e.touches[0].clientX, e.touches[0].clientY];
+}, {passive:true});
+hero.addEventListener('touchend', e => {
+  if (!touchStart) return;
+  const dx = e.changedTouches[0].clientX - touchStart[0];
+  const dy = e.changedTouches[0].clientY - touchStart[1];
+  if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) showSlide(current + (dx < 0 ? 1 : -1));
+  touchStart = null;
+}, {passive:true});
 
-const dialog = document.querySelector('#request-dialog');
-const preview = document.querySelector('#request-text');
-const copy = document.querySelector('#copy-request');
-description.addEventListener('input', () => description.setCustomValidity(''));
-document.querySelector('#contact-form').addEventListener('submit', event => {
-  event.preventDefault();
-  if (!description.value.trim()) {
-    description.setCustomValidity('Опишите вашу задачу.');
-    description.reportValidity();
-    return;
-  }
-  preview.textContent = `Здравствуйте! Интересуют бетонные работы.\n\n${service.value}.\n${description.value.trim()}`;
-  document.querySelector('#whatsapp-link').href = 'https://wa.me/79517243652?text=' + encodeURIComponent(preview.textContent);
-  copy.textContent = 'Скопировать текст';
-  dialog.showModal();
-});
-document.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
-dialog.addEventListener('click', event => {
-  if (event.target !== dialog) return;
-  const bounds = dialog.getBoundingClientRect();
-  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
-});
-copy.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(preview.textContent);
-    copy.textContent = 'Скопировано';
-  } catch {
-    const range = document.createRange();
-    range.selectNodeContents(preview);
-    const selection = getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    copy.textContent = 'Текст выделен для копирования';
-  }
-});
-
-// Build the photograph from five independently moving strips, then release the layers.
-const photo = document.querySelector('.photo-window img');
-const strips = [...document.querySelectorAll('.shutters i')];
-let animations = [];
-function assemble() {
-  if (reducedMotion.matches || !photo.naturalWidth || !photo.animate) return;
-  animations.forEach(animation => animation.cancel());
-  const {width, height} = photo.getBoundingClientRect();
-  const scale = Math.max(width / photo.naturalWidth, height / photo.naturalHeight);
-  const sw = photo.naturalWidth * scale, sh = photo.naturalHeight * scale;
-  const origin = photo.getBoundingClientRect().left;
-  animations = strips.map((strip, index) => {
-    const left = strip.getBoundingClientRect().left - origin;
-    Object.assign(strip.style, {
-      backgroundImage: 'url("' + photo.currentSrc + '")',
-      backgroundSize: sw + 'px ' + sh + 'px',
-      backgroundPosition: ((width - sw) * .83 - left) + 'px ' + ((height - sh) * .54) + 'px'
+function enter(element, delay = 0) {
+  if (motion.matches || !element.animate) return;
+  element.animate([{opacity:.35, transform:'translateY(13px)'}, {opacity:1, transform:'translateY(0)'}],
+    {duration:430, delay, easing:'cubic-bezier(.18,.7,.24,1)', fill:'backwards'});
+}
+const cards = [...document.querySelectorAll('.card')];
+if ('IntersectionObserver' in window) {
+  new IntersectionObserver(([entry]) => { inView = entry.isIntersecting; schedule(); }).observe(hero);
+  const reveal = new IntersectionObserver(entries => {
+    entries.filter(entry => entry.isIntersecting).forEach((entry, i) => {
+      reveal.unobserve(entry.target);
+      enter(entry.target, (i % 3) * 45);
     });
-    return strip.animate([
-      {transform: 'translateY(' + (index % 2 ? -55 : 55) + '%)', opacity: 0},
-      {transform: 'translateY(0)', opacity: 1}
-    ], {duration: 720, delay: index * 60, easing: 'cubic-bezier(.17,.75,.22,1)', fill: 'both'});
   });
-  photo.style.opacity = '0';
-  const current = animations;
-  Promise.allSettled(current.map(animation => animation.finished)).then(() => {
-    if (current !== animations) return;
-    photo.style.opacity = '';
-    current.forEach(animation => animation.cancel());
-    animations = [];
-  });
+  document.querySelectorAll('.card, .catalog h2, .contact > *, footer').forEach(el => reveal.observe(el));
 }
-if (!location.hash || location.hash === '#top') {
-  if (photo.complete) assemble();
-  else photo.addEventListener('load', () => { if (scrollY < innerHeight / 2) assemble(); }, {once:true});
-}
-document.querySelector('#replay-intro').addEventListener('click', () => {
-  showCutaway(false);
-  window.scrollTo({top:0, behavior:'instant'});
-  assemble();
-});
-reducedMotion.addEventListener('change', () => {
-  if (reducedMotion.matches) animations.forEach(animation => animation.cancel());
-});
+schedule();
 
-if ('IntersectionObserver' in window && !reducedMotion.matches) {
-  const observer = new IntersectionObserver(entries => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      observer.unobserve(entry.target);
-      if (!reducedMotion.matches) entry.target.animate(
-        [{transform:'translateY(14px)', opacity:.6}, {transform:'none', opacity:1}],
-        {duration:450, easing:'ease-out'}
-      );
-    }
-  }, {threshold:.15});
-  document.querySelectorAll('.section h2,.steps li,.workbench').forEach(element => observer.observe(element));
+const filters = [...document.querySelectorAll('.filters button')];
+for (const button of filters) {
+  button.onclick = () => {
+    const group = Number(button.dataset.group);
+    filters.forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+    cards.forEach((card, i) => {
+      card.hidden = group >= 0 && Math.floor(i / 3) !== group;
+      if (!card.hidden) enter(card, (i % 3) * 45);
+    });
+  };
 }
+for (const [i, card] of cards.entries()) {
+  card.onclick = () => {
+    const [name, desc, work, ...images] = rows[i];
+    document.querySelector('#name').textContent = name;
+    document.querySelector('#group').textContent = groups[Math.floor(i / 3)];
+    document.querySelector('#desc').textContent = desc;
+    document.querySelector('#sample').src = card.querySelector('img').src;
+    document.querySelector('#tasks').replaceChildren(...work.split('|').map(text => {
+      const li = document.createElement('li'); li.textContent = text; return li;
+    }));
+    document.querySelector('.pair').replaceChildren(...images.map(k => {
+      const figure = document.createElement('figure');
+      const image = new Image();
+      image.src = 'media/stage' + k + '.webp';
+      image.alt = '';
+      const caption = document.createElement('figcaption');
+      caption.textContent = stages[k];
+      figure.append(image, caption);
+      return figure;
+    }));
+    dialog.showModal();
+    dialog.scrollTop = 0;
+    schedule();
+  };
+}
+dialog.querySelector('.close').onclick = () => dialog.close();
+dialog.onclick = e => { if (e.target === dialog) dialog.close(); };
+dialog.addEventListener('close', schedule);
